@@ -1,0 +1,36 @@
+# build outputs
+/dist/
+/core/dist/
+*.aar
+*.xcframework/
+core/**/*.test
+
+# Flutter / Dart
+app/.dart_tool/
+app/.packages
+app/build/
+app/.flutter-plugins
+app/.flutter-plugins-dependencies
+app/pubspec.lock.bak
+app/android/.gradle/
+app/android/local.properties
+app/android/key.properties
+app/android/app/upload.jks
+app/android/app/libs/*.aar
+app/ios/Pods/
+app/ios/Core.xcframework/
+app/macos/Pods/
+**/Flutter/ephemeral/
+**/GeneratedPluginRegistrant.*
+**/generated_plugin_registrant.*
+**/generated_plugins.cmake
+
+# webinject
+webinject/node_modules/
+webinject/.chrome-profile*/
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
+*.swp
