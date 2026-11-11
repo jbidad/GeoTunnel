@@ -151,7 +151,7 @@ func Launch(ctx context.Context, o Options) (*Session, error) {
 	s.conn = newConn(tr, s.onEvent)
 	go func() {
 		cmd.Wait()
-		tr.Close()
+		_ = tr.Close()
 		s.emit(Event{Type: "exit"})
 		close(s.done)
 	}()
@@ -177,7 +177,9 @@ func (s *Session) setup(ctx context.Context) error {
 		return fmt.Errorf("webapp: browser did not answer CDP: %w", err)
 	}
 	var v struct{ UserAgent string }
-	json.Unmarshal(ver, &v)
+	if err := json.Unmarshal(ver, &v); err != nil {
+		return fmt.Errorf("webapp: Browser.getVersion: %w", err)
+	}
 	// Headless builds announce themselves in the UA; present a normal one.
 	s.ua = strings.Replace(v.UserAgent, "HeadlessChrome", "Chrome", 1)
 
@@ -231,7 +233,7 @@ func (s *Session) onEvent(sessionID, method string, params json.RawMessage) {
 		defer cancel()
 		s.configure(ctx, p.SessionID, p.TargetInfo.Type)
 		if p.WaitingForDebugger {
-			s.conn.Call(ctx, p.SessionID, "Runtime.runIfWaitingForDebugger", nil)
+			_, _ = s.conn.Call(ctx, p.SessionID, "Runtime.runIfWaitingForDebugger", nil)
 		}
 		s.emit(Event{Type: "target", TargetID: p.TargetInfo.TargetID, Kind: p.TargetInfo.Type, URL: p.TargetInfo.URL})
 		if p.TargetInfo.Type == "page" {
@@ -343,7 +345,7 @@ func (s *Session) Done() <-chan struct{} { return s.done }
 func (s *Session) Close() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	s.conn.Call(ctx, "", "Browser.close", nil)
+	_, _ = s.conn.Call(ctx, "", "Browser.close", nil) // best effort; we kill below if needed
 	select {
 	case <-s.done:
 	case <-time.After(5 * time.Second):

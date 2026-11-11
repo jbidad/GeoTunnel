@@ -12,6 +12,8 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"sync"
 	"time"
@@ -32,6 +34,13 @@ type Options struct {
 	LogBuffer int
 	// GeoProviders overrides geo.DefaultProviders (tests, self-hosted).
 	GeoProviders []geo.Provider
+	// DataDir holds sing-box's cache file. Empty: a private temporary
+	// directory per engine, removed on Stop. Hosts pass a persistent one
+	// (Android filesDir, iOS app group, desktop user cache dir).
+	DataDir string
+	// Logs reuses an existing hub (so subscribers survive engine restarts);
+	// the engine points it at its own scrubber.
+	Logs *LogHub
 }
 
 // Engine is safe for concurrent use.
@@ -47,6 +56,7 @@ type Engine struct {
 	sb        *singBox
 	track     *tracker
 	startedAt time.Time
+	tmpDir    string // used when Options.DataDir is empty
 
 	geoCache geo.Cache
 	geoMu    sync.Mutex
@@ -60,7 +70,12 @@ func New(opts Options) *Engine {
 		opts.LogBuffer = 2000
 	}
 	e := &Engine{opts: opts, jitters: map[string]geo.Jitter{}, derived: map[string]geo.Derived{}}
-	e.Logs = NewLogHub(opts.LogBuffer, &e.scrub)
+	if opts.Logs != nil {
+		e.Logs = opts.Logs
+		e.Logs.SetScrubber(&e.scrub)
+	} else {
+		e.Logs = NewLogHub(opts.LogBuffer, &e.scrub)
+	}
 	return e
 }
 
@@ -104,8 +119,15 @@ func (e *Engine) startLocked(st *config.State) error {
 			return err
 		}
 	}
+	cachePath, err := e.cachePathLocked()
+	if err != nil {
+		if xi != nil {
+			xi.Close()
+		}
+		return err
+	}
 	trk := newTracker()
-	sb, err := startSingBox(built.SingBox, e.opts.Platform, e.Logs, trk)
+	sb, err := startSingBox(built.SingBox, e.opts.Platform, e.Logs, cachePath, trk)
 	if err != nil {
 		if xi != nil {
 			xi.Close()
@@ -135,10 +157,33 @@ func (e *Engine) stopLocked() error {
 		errs = append(errs, e.xray.Close())
 		e.xray = nil
 	}
+	if e.tmpDir != "" {
+		os.RemoveAll(e.tmpDir)
+		e.tmpDir = ""
+	}
 	if e.state != nil {
 		e.Logs.Write("engine", "info", "stopped")
 	}
 	return errors.Join(errs...)
+}
+
+// cachePathLocked returns where sing-box keeps its cache file.
+func (e *Engine) cachePathLocked() (string, error) {
+	dir := e.opts.DataDir
+	if dir == "" {
+		if e.tmpDir == "" {
+			d, err := os.MkdirTemp("", "geotunnel-engine-")
+			if err != nil {
+				return "", err
+			}
+			e.tmpDir = d
+		}
+		dir = e.tmpDir
+	}
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return "", fmt.Errorf("data dir: %w", err)
+	}
+	return filepath.Join(dir, "singbox-cache.db"), nil
 }
 
 // Reload swaps in a new state. Inbound ports are reused, so the old cores
@@ -279,7 +324,7 @@ func (e *Engine) TestOutbound(ctx context.Context, stateJSON []byte, outboundID 
 		}
 		defer xi.Close()
 	}
-	sb, err := startSingBox(built.SingBox, nil, nil)
+	sb, err := startSingBox(built.SingBox, nil, nil, "")
 	if err != nil {
 		res.Error = err.Error()
 		return res

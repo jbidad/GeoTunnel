@@ -1,0 +1,51 @@
+# golangci-lint v2 configuration for the Go core. CI pins the linter version
+# (see .github/workflows/core-ci.yml); run locally with:
+#   golangci-lint run ./...
+version: "2"
+
+run:
+  build-tags: [with_gvisor, with_quic, with_utls, with_clash_api]
+
+linters:
+  default: standard # errcheck, govet, ineffassign, staticcheck, unused
+  enable:
+    - bodyclose
+    - misspell
+    - unconvert
+  settings:
+    errcheck:
+      # Fire-and-forget calls where an error has nowhere useful to go:
+      # cleanup Close, deadlines, best-effort removal, process reaping,
+      # flag parsing with ExitOnError, CLI output, hashing writes.
+      exclude-functions:
+        - (io.Closer).Close
+        - (net.Conn).Close
+        - (net.Conn).SetDeadline
+        - (net.Conn).SetReadDeadline
+        - (net.Conn).SetWriteDeadline
+        - (net.Conn).Write
+        - (net.Listener).Close
+        - (*os.File).Close
+        - (*os.Process).Kill
+        - (*os/exec.Cmd).Wait
+        - (*flag.FlagSet).Parse
+        - (*encoding/json.Encoder).Encode
+        - (*github.com/xtls/xray-core/core.Instance).Close
+        - (*geotunnel/core/engine.singBox).Close
+        - (*geotunnel/core/engine.Engine).Stop
+        - (*geotunnel/core/webapp.Session).Close
+        - (golang.org/x/sys/windows/registry.Key).Close
+        - golang.org/x/sys/windows.CloseHandle
+        - io.Copy
+        - os.Remove
+        - os.RemoveAll
+        - fmt.Fprintf
+  exclusions:
+    rules:
+      # Test servers and fixtures ignore write errors on purpose.
+      - path: _test\.go
+        linters: [errcheck]
+
+formatters:
+  enable:
+    - gofmt

@@ -87,7 +87,7 @@ func splitExec(s string) []string {
 	flush := func() {
 		if cur.Len() > 0 {
 			t := cur.String()
-			if !(len(t) == 2 && t[0] == '%') {
+			if len(t) != 2 || t[0] != '%' { // drop %f, %U, ... field codes
 				out = append(out, t)
 			}
 			cur.Reset()

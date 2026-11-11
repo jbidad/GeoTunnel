@@ -157,7 +157,7 @@ func TestLookupThroughSOCKSWithFallback(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/broken":
-			http.Error(w, "nope", 503)
+			http.Error(w, "nope", http.StatusServiceUnavailable)
 		case "/ipinfo":
 			w.Write([]byte(`{"ip":"203.0.113.77","city":"Istanbul","region":"Istanbul","country":"TR","loc":"41.0138,28.9497","org":"AS0 Example","timezone":"Europe/Istanbul"}`))
 		}
