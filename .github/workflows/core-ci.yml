@@ -1,0 +1,152 @@
+# Checks for the Go core on every pull request and push to main.
+name: core-ci
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "core/**"
+      - ".github/workflows/core-ci.yml"
+  pull_request:
+    paths:
+      - "core/**"
+      - ".github/workflows/core-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: core-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GO_VERSION: "1.26.x" # minimum is the go directive in core/go.mod
+  TAGS: with_gvisor,with_quic,with_utls,with_clash_api
+  GOLANGCI_LINT_VERSION: v2.15.0
+
+defaults:
+  run:
+    shell: bash
+    working-directory: core
+
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: core/go.sum
+      - name: gofmt
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then echo "$unformatted"; exit 1; fi
+      - name: go.mod is tidy
+        run: go mod tidy -diff
+      - name: go mod verify
+        run: go mod verify
+      - name: Install golangci-lint
+        run: go install "github.com/golangci/golangci-lint/v2/cmd/golangci-lint@${GOLANGCI_LINT_VERSION}"
+      - name: vet and lint for every target OS
+        env:
+          CGO_ENABLED: "0"
+        run: |
+          for t in linux/amd64 darwin/arm64 windows/amd64 android/arm64; do
+            echo "::group::${t}"
+            GOOS="${t%/*}" GOARCH="${t#*/}" go vet -tags "$TAGS" ./...
+            GOOS="${t%/*}" GOARCH="${t#*/}" "$(go env GOPATH)/bin/golangci-lint" run ./...
+            echo "::endgroup::"
+          done
+
+  test:
+    name: test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: core/go.sum
+      - name: go test
+        env:
+          # Ubuntu 24.04 blocks the unprivileged user namespaces Chrome's
+          # sandbox needs; the container tests run Chrome without it there.
+          GEOTUNNEL_TEST_BROWSER_ARGS: ${{ runner.os == 'Linux' && '--no-sandbox' || '' }}
+        run: |
+          race=""
+          if [ "$RUNNER_OS" != "Windows" ]; then race="-race"; fi
+          go test $race -tags "$TAGS" -count=1 -timeout 15m ./...
+
+  sidecar:
+    name: sidecar (${{ matrix.goos }}/${{ matrix.goarch }})
+    needs: lint
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - { goos: windows, goarch: amd64, ext: .exe }
+          - { goos: windows, goarch: arm64, ext: .exe }
+          - { goos: darwin, goarch: amd64, ext: "" }
+          - { goos: darwin, goarch: arm64, ext: "" }
+          - { goos: linux, goarch: amd64, ext: "" }
+          - { goos: linux, goarch: arm64, ext: "" }
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # git describe for the version string
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: core/go.sum
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+        run: |
+          version="$(git describe --tags --always --dirty)"
+          go build -trimpath -tags "$TAGS" -ldflags "-s -w -X main.version=${version}" \
+            -o "../dist/core-${GOOS}-${GOARCH}${{ matrix.ext }}" ./cmd/core
+      - uses: actions/upload-artifact@v4
+        with:
+          name: core-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/*
+          retention-days: 7
+
+  android-aar:
+    name: gomobile bind (android)
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: core/go.sum
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Build gomobile and gobind at the versions pinned in go.mod
+        run: |
+          mkdir -p "$RUNNER_TEMP/gomobile"
+          go build -o "$RUNNER_TEMP/gomobile/" golang.org/x/mobile/cmd/gomobile golang.org/x/mobile/cmd/gobind
+          echo "$RUNNER_TEMP/gomobile" >> "$GITHUB_PATH"
+      - name: gomobile bind
+        run: |
+          export ANDROID_NDK_HOME="$ANDROID_NDK_LATEST_HOME"
+          gomobile bind -target=android -androidapi 21 -javapkg app.geotunnel -tags "$TAGS" \
+            -trimpath -ldflags "-s -w" -o ../dist/core.aar ./mobile
+          ls -l ../dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: core-android
+          path: dist/*
+          retention-days: 7

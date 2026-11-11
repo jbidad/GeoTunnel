@@ -8,6 +8,8 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -183,7 +185,19 @@ func runInContainer(t *testing.T, o Options, expr string, out any) *socksRecorde
 	o.ProxyPort = port
 	o.ProxyLoopback = true
 	o.NoProcessEnv = true // prove the CDP overrides alone are enough
-	o.UserDataDir = t.TempDir()
+	// Not t.TempDir: on Windows the browser can hold profile files for a
+	// moment after exit, which would fail the test during cleanup.
+	dir, err := os.MkdirTemp("", "gt-webapp-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.RemoveAll(dir) })
+	o.UserDataDir = dir
+	if runtime.GOOS == "windows" {
+		o.UseDebugPort = true // pipes cannot be inherited on Windows
+	}
+	// CI hook, e.g. "--no-sandbox" where the runner forbids Chrome's sandbox.
+	o.ExtraArgs = append(o.ExtraArgs, strings.Fields(os.Getenv("GEOTUNNEL_TEST_BROWSER_ARGS"))...)
 	// A name that cannot resolve locally: it only works if the proxy resolves it.
 	o.URL = "http://geotunnel-test.example:" + strconv.Itoa(backendPort) + "/"
 	// Real web apps are https; the plain-http test origin needs this for

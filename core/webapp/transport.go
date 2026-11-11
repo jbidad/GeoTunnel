@@ -53,7 +53,7 @@ func dialDevToolsPort(ctx context.Context, dir string, cmd *exec.Cmd) (transport
 			lines := strings.Split(strings.TrimSpace(string(b)), "\n")
 			if len(lines) >= 2 {
 				url := fmt.Sprintf("ws://127.0.0.1:%s%s", strings.TrimSpace(lines[0]), strings.TrimSpace(lines[1]))
-				c, _, err := websocket.Dial(ctx, url, nil)
+				c, _, err := websocket.Dial(ctx, url, nil) //nolint:bodyclose // coder/websocket owns the handshake response
 				if err != nil {
 					return nil, err
 				}

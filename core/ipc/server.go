@@ -97,7 +97,9 @@ func (s *Server) handle(c net.Conn) {
 		return
 	}
 	var ap struct{ Token string }
-	json.Unmarshal(first.Params, &ap)
+	if json.Unmarshal(first.Params, &ap) != nil {
+		ap.Token = ""
+	}
 	if subtle.ConstantTimeCompare([]byte(ap.Token), []byte(s.Token)) != 1 {
 		time.Sleep(500 * time.Millisecond)
 		write(response{ID: first.ID, Error: &rpcError{401, "bad token"}})
@@ -186,7 +188,9 @@ func (s *Server) dispatch(ctx context.Context, method string, params json.RawMes
 			ID    string          `json:"id"`
 			State json.RawMessage `json:"state"`
 		}
-		json.Unmarshal(params, &p)
+		if err := decodeParams(params, &p); err != nil {
+			return nil, err
+		}
 		st := p.State
 		if len(st) == 0 {
 			st = s.lastState()
@@ -200,14 +204,18 @@ func (s *Server) dispatch(ctx context.Context, method string, params json.RawMes
 			ProfileID string `json:"profileId"`
 			Force     bool   `json:"force"`
 		}
-		json.Unmarshal(params, &p)
+		if err := decodeParams(params, &p); err != nil {
+			return nil, err
+		}
 		return e.GeoLookup(ctx, p.ProfileID, p.Force)
 	case "leakTest":
 		var p struct {
 			ProfileID     string `json:"profileId"`
 			CompareDirect bool   `json:"compareDirect"`
 		}
-		json.Unmarshal(params, &p)
+		if err := decodeParams(params, &p); err != nil {
+			return nil, err
+		}
 		rep, real, err := e.LeakTestNetwork(ctx, p.ProfileID, engine.LeakOptions{CompareDirect: p.CompareDirect})
 		if err != nil {
 			return nil, err
@@ -237,7 +245,9 @@ func (s *Server) dispatch(ctx context.Context, method string, params json.RawMes
 			Text  string `json:"text"`
 			Group string `json:"group"`
 		}
-		json.Unmarshal(params, &p)
+		if err := decodeParams(params, &p); err != nil {
+			return nil, err
+		}
 		return config.ParseImport([]byte(p.Text), p.Group)
 	case "toLink":
 		var p struct {
@@ -254,6 +264,18 @@ func (s *Server) dispatch(ctx context.Context, method string, params json.RawMes
 		return map[string]bool{"ok": err == nil}, err
 	}
 	return nil, fmt.Errorf("unknown method %q", method)
+}
+
+// decodeParams accepts absent params (methods with only optional fields)
+// but rejects malformed ones instead of running with zero values.
+func decodeParams(params json.RawMessage, v any) error {
+	if len(params) == 0 || string(params) == "null" {
+		return nil
+	}
+	if err := json.Unmarshal(params, v); err != nil {
+		return fmt.Errorf("bad params: %w", err)
+	}
+	return nil
 }
 
 func nullIfEmpty(b []byte) json.RawMessage {

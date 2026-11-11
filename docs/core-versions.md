@@ -37,7 +37,7 @@ based on what the pinned versions actually support:
 2. Re-check the bullet points above against the new sources (grep
    `PrintRemovedFeatureError` in Xray's `infra/conf`, and `option/` in
    sing-box for renamed fields).
-3. `go test -tags with_gvisor,with_quic,with_utls,with_clash_api ./...` — in
+3. `make lint test` (or push and let `core-ci` run, see `docs/ci.md`) — in
    particular `engine.TestEveryFixtureBuildsValidCoreConfigs` and
    `engine.TestTunConfigsParse` feed every generated config through the real
    loaders of both cores, and `engine.TestEndToEndThroughBothEngines` passes

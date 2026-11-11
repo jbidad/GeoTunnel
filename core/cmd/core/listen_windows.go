@@ -65,7 +65,9 @@ func (h *handler) Execute(_ []string, req <-chan svc.ChangeRequest, status chan<
 			case svc.Stop, svc.Shutdown:
 				status <- svc.Status{State: svc.StopPending}
 				cancel()
-				<-done
+				if err := <-done; err != nil {
+					return false, 1
+				}
 				return false, 0
 			}
 		case err := <-done:

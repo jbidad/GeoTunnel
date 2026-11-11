@@ -5,7 +5,6 @@ import (
 	"net/netip"
 	"strings"
 	"sync"
-	"syscall"
 
 	"github.com/sagernet/sing-box/adapter"
 	"github.com/sagernet/sing-box/option"
@@ -115,7 +114,7 @@ func (w *platformAdapter) OpenInterface(options *tun.Options, _ option.TunPlatfo
 	if options.InterfaceMonitor != nil {
 		options.InterfaceMonitor.RegisterMyInterface(name)
 	}
-	nfd, err := syscall.Dup(int(fd))
+	nfd, err := dupFd(int(fd))
 	if err != nil {
 		return nil, E.Cause(err, "dup tun fd")
 	}
