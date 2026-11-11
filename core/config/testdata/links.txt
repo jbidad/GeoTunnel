@@ -1,0 +1,19 @@
+# Real-world-shaped share links. Every credential, key and host here is fake
+# (RFC 5737 / RFC 3849 documentation ranges, example.* domains).
+vless://8f2a1b3c-4d5e-4f60-8a7b-9c0d1e2f3a4b@203.0.113.10:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=www.example.com&fp=chrome&pbk=Z84J2IelR9ch3k8VtlVhhs5ycBUlXA7wHBWcBrjqnAw&sid=6ba85179e30d4fc2&spx=%2F&type=tcp&headerType=none#TR-Istanbul%20Reality
+vless://1d2c3b4a-5e6f-4a7b-8c9d-0e1f2a3b4c5d@cdn.example.net:443?encryption=none&security=tls&sni=cdn.example.net&alpn=http%2F1.1&fp=chrome&type=ws&host=cdn.example.net&path=%2Fws%3Fed%3D2048#DE-WS-TLS
+vless://2e3d4c5b-6f70-4b8c-9dae-1f203a4b5c6d@x.example.org:443?encryption=none&security=tls&sni=x.example.org&alpn=h2&fp=chrome&type=xhttp&host=x.example.org&path=%2Fxh&mode=auto#FR-XHTTP
+vless://3f4e5d6c-7081-4c9d-aebf-2031a4b5c6d7@203.0.113.11:8443?encryption=none&security=reality&sni=grpc.example.com&fp=safari&pbk=Q1w2E3r4T5y6U7i8O9p0A1s2D3f4G5h6J7k8L9z0X1c&sid=ab12&type=grpc&serviceName=grpcsvc&mode=gun#NL-gRPC-Reality
+vless://4a5f6e7d-8192-4dae-bfc0-3142b5c6d7e8@[2001:db8::2]:8443?encryption=none&security=tls&sni=h.example.com&type=httpupgrade&host=h.example.com&path=%2Fup#V6-HTTPUpgrade
+vmess://eyJ2IjoiMiIsInBzIjoiVVMtVk1lc3MtV1MiLCJhZGQiOiJ2bS5leGFtcGxlLmNvbSIsInBvcnQiOiI0NDMiLCJpZCI6IjBiOWU5YzFlLTRkMWEtNGY0ZS05YTZlLTJmNmQ4YzNiN2E1MSIsImFpZCI6IjAiLCJzY3kiOiJhdXRvIiwibmV0Ijoid3MiLCJ0eXBlIjoibm9uZSIsImhvc3QiOiJ2bS5leGFtcGxlLmNvbSIsInBhdGgiOiIvdm13cyIsInRscyI6InRscyIsInNuaSI6InZtLmV4YW1wbGUuY29tIiwiYWxwbiI6ImgyLGh0dHAvMS4xIiwiZnAiOiJmaXJlZm94In0=
+vmess://eyJ2IjoyLCJwcyI6Ik5MLVZNZXNzLWdSUEMiLCJhZGQiOiIxOTguNTEuMTAwLjIwIiwicG9ydCI6ODQ0MywiaWQiOiJjM2UxZjBhMi02YjdkLTRlOGYtOWEwYi0xYzJkM2U0ZjVhNmIiLCJhaWQiOjAsIm5ldCI6ImdycGMiLCJ0eXBlIjoibXVsdGkiLCJob3N0IjoiIiwicGF0aCI6InZtZ3JwYyIsInRscyI6InRscyIsInNuaSI6ImdycGMuZXhhbXBsZS5vcmcifQ==
+vmess://5b6a7f80-92a3-4ebf-c0d1-4253c6d7e8f9@vm2.example.com:80?type=tcp&headerType=http&host=bing.example.com&path=%2F&security=none#VMess-AEAD-HTTPHeader
+trojan://p%40ssw0rd-trojan@198.51.100.7:443?sni=t.example.com&fp=chrome#UK-Trojan
+trojan://tr-grpc-secret@tr.example.com:443?security=tls&sni=tr.example.com&type=grpc&serviceName=trgrpc#Trojan-gRPC
+ss://YWVzLTI1Ni1nY206cGFzc3dvcmQ@192.0.2.5:8388#SS-AEAD
+ss://2022-blake3-aes-128-gcm:YctPZ6U7xPPcU%2Bgp3u%2B0tx%2FtRizJN9K8y%2BuKlW2qjlI%3D@192.0.2.6:8443#SS-2022
+ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTpsZWdhY3ktc2VjcmV0QDE5Mi4wLjIuNzo4Mzg5#SS-Legacy
+ss://YWVzLTEyOC1nY206dGVzdA@192.0.2.8:8388/?plugin=obfs-local%3Bobfs%3Dhttp%3Bobfs-host%3Dexample.com#SS-Plugin
+hysteria2://letmein@hy.example.com:443/?sni=hy.example.com&obfs=salamander&obfs-password=gawrgura&insecure=1#HY2-Salamander
+hy2://hop-pass@[2001:db8::1]:20000-30000/?sni=hop.example.com#HY2-Hopping
+tuic://2dd61d93-75d8-4da4-ac0e-6aece7eac365:tuic-pass@tuic.example.com:443?congestion_control=bbr&alpn=h3&sni=tuic.example.com&udp_relay_mode=native#TUIC-v5
