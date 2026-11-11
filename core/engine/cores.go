@@ -3,6 +3,7 @@ package engine
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -126,7 +127,11 @@ type singBox struct {
 	cancel context.CancelFunc
 }
 
-func startSingBox(cfg []byte, platform adapter.PlatformInterface, hub *LogHub, trackers ...adapter.ConnectionTracker) (*singBox, error) {
+// startSingBox starts an instance. With a log hub, sing-box also opens its
+// bbolt cache file (box.New enables it whenever a PlatformLogWriter is set),
+// so cachePath must then name a writable file; without one it would default
+// to "cache.db" in the process's working directory.
+func startSingBox(cfg []byte, platform adapter.PlatformInterface, hub *LogHub, cachePath string, trackers ...adapter.ConnectionTracker) (*singBox, error) {
 	ctx, cancel := context.WithCancel(singBoxContext(platform))
 	opts, err := parseSingBox(ctx, cfg)
 	if err != nil {
@@ -135,6 +140,10 @@ func startSingBox(cfg []byte, platform adapter.PlatformInterface, hub *LogHub, t
 	}
 	var lw sblog.PlatformWriter
 	if hub != nil {
+		if cachePath == "" {
+			cancel()
+			return nil, errors.New("sing-box: cache file path required when logging to the hub")
+		}
 		lw = sbLogWriter{hub}
 		// Our writer receives every line; keep sing-box off stdout.
 		if opts.Log == nil {
@@ -142,6 +151,14 @@ func startSingBox(cfg []byte, platform adapter.PlatformInterface, hub *LogHub, t
 		}
 		opts.Log.Output = ""
 		opts.Log.Disabled = false
+		if opts.Experimental == nil {
+			opts.Experimental = &option.ExperimentalOptions{}
+		}
+		if opts.Experimental.CacheFile == nil {
+			opts.Experimental.CacheFile = &option.CacheFileOptions{}
+		}
+		opts.Experimental.CacheFile.Enabled = true
+		opts.Experimental.CacheFile.Path = cachePath
 	}
 	inst, err := box.New(box.Options{Options: opts, Context: ctx, PlatformLogWriter: lw})
 	if err != nil {
@@ -152,7 +169,7 @@ func startSingBox(cfg []byte, platform adapter.PlatformInterface, hub *LogHub, t
 		inst.Router().AppendTracker(t)
 	}
 	if err := inst.Start(); err != nil {
-		inst.Close()
+		_ = inst.Close()
 		cancel()
 		return nil, fmt.Errorf("sing-box start: %w", err)
 	}

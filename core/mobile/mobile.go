@@ -27,13 +27,23 @@ import (
 
 var (
 	mu        sync.Mutex
-	eng       = engine.New(engine.Options{})
+	hub       = engine.NewLogHub(2000, nil) // lives as long as the app; follows the current engine's scrubber
+	eng       = engine.New(engine.Options{Logs: hub})
+	dataDir   string
 	lastState string
 	stopLogs  func()
 )
 
 // Version of the core.
 func Version() string { return ipc.Version }
+
+// SetDataDir sets where the core keeps its cache (Android:
+// Context.getFilesDir(); iOS: the app group container). Call before Start.
+func SetDataDir(dir string) {
+	mu.Lock()
+	defer mu.Unlock()
+	dataDir = dir
+}
 
 // Start runs the engine. platform may be nil when no profile needs the TUN
 // (web-container-only use); then only the per-profile local inbounds exist.
@@ -43,13 +53,11 @@ func Start(stateJSON string, platform Platform) error {
 	if eng.Running() {
 		return errors.New("already running")
 	}
-	opts := engine.Options{}
+	opts := engine.Options{Logs: hub, DataDir: dataDir}
 	if platform != nil {
 		opts.Platform = newPlatformAdapter(platform)
 	}
-	logs := eng.Logs
 	eng = engine.New(opts)
-	eng.Logs = logs
 	if err := eng.Start([]byte(stateJSON)); err != nil {
 		return err
 	}
@@ -147,7 +155,9 @@ func EvaluateBrowser(expectedJSON, observedJSON, realJSON string) (string, error
 	var real *engine.RealIPs
 	if realJSON != "" && realJSON != "null" {
 		real = &engine.RealIPs{}
-		json.Unmarshal([]byte(realJSON), real)
+		if err := json.Unmarshal([]byte(realJSON), real); err != nil {
+			return "", err
+		}
 	}
 	return toJSON(engine.EvaluateBrowser(exp, obs, real)), nil
 }
@@ -183,7 +193,7 @@ func ValidateState(stateJSON string) error {
 }
 
 // RecentLogs returns the buffered, scrubbed log lines as JSON.
-func RecentLogs() string { return toJSON(eng.Logs.Recent()) }
+func RecentLogs() string { return toJSON(hub.Recent()) }
 
 // LogListener receives log lines as they happen.
 type LogListener interface {
@@ -201,7 +211,7 @@ func SetLogListener(l LogListener) {
 	if l == nil {
 		return
 	}
-	ch, stop := eng.Logs.Subscribe()
+	ch, stop := hub.Subscribe()
 	stopLogs = stop
 	go func() {
 		for line := range ch {

@@ -24,6 +24,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -93,6 +94,7 @@ func cmdServe(args []string) error {
 	ownerUID := fs.Int("owner-uid", -1, "uid allowed to connect (privileged helper on macOS/Linux)")
 	allowSID := fs.String("allow-sid", "", "user SID allowed to connect (privileged service on Windows)")
 	privileged := fs.Bool("privileged", false, "running as the TUN helper: refuse to launch browsers/apps")
+	dataDir := fs.String("data-dir", defaultDataDir(), "where the core keeps its cache (the helper uses a system directory)")
 	fs.Parse(args)
 
 	token := os.Getenv("GEOTUNNEL_TOKEN")
@@ -126,7 +128,7 @@ func cmdServe(args []string) error {
 		return err
 	}
 	fmt.Fprintf(os.Stderr, "core: listening on %s\n", l.Addr())
-	e := engine.New(engine.Options{})
+	e := engine.New(engine.Options{DataDir: *dataDir})
 	srv := &ipc.Server{Engine: e, Token: token, AllowWebApps: !*privileged}
 	return runService(func(ctx context.Context) error {
 		go func() {
@@ -137,6 +139,15 @@ func cmdServe(args []string) error {
 		e.Stop()
 		return err
 	})
+}
+
+// defaultDataDir is the per-user cache directory (…/GeoTunnel), or "" to
+// let the engine use a private temporary directory.
+func defaultDataDir() string {
+	if d, err := os.UserCacheDir(); err == nil {
+		return filepath.Join(d, "GeoTunnel")
+	}
+	return ""
 }
 
 func randomToken() string {
@@ -187,11 +198,14 @@ func readArg(args []string) ([]byte, error) {
 }
 
 func cmdRun(args []string) error {
-	b, err := readArg(args)
+	fs := flag.NewFlagSet("run", flag.ExitOnError)
+	dataDir := fs.String("data-dir", defaultDataDir(), "where the core keeps its cache")
+	fs.Parse(args)
+	b, err := readArg(fs.Args())
 	if err != nil {
 		return err
 	}
-	e := engine.New(engine.Options{})
+	e := engine.New(engine.Options{DataDir: *dataDir})
 	if err := e.Start(b); err != nil {
 		return err
 	}

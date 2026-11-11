@@ -26,20 +26,30 @@ type LogHub struct {
 	full  bool
 	subs  map[int]chan LogLine
 	subID int
-	Scrub *config.Scrubber
+	scrub *config.Scrubber
 }
 
 func NewLogHub(size int, scrub *config.Scrubber) *LogHub {
-	return &LogHub{ring: make([]LogLine, size), subs: map[int]chan LogLine{}, Scrub: scrub}
+	return &LogHub{ring: make([]LogLine, size), subs: map[int]chan LogLine{}, scrub: scrub}
+}
+
+// SetScrubber points the hub at the scrubber of the engine now using it. A
+// hub outliving one engine (mobile keeps one for the app's lifetime) must
+// follow the current engine's secrets, not the first one's.
+func (h *LogHub) SetScrubber(s *config.Scrubber) {
+	h.mu.Lock()
+	h.scrub = s
+	h.mu.Unlock()
 }
 
 func (h *LogHub) Write(source, level, msg string) {
 	msg = strings.TrimRight(msg, "\r\n")
-	if h.Scrub != nil {
-		msg = h.Scrub.Scrub(msg)
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.scrub != nil {
+		msg = h.scrub.Scrub(msg)
 	}
 	line := LogLine{Time: time.Now(), Level: level, Source: source, Msg: msg}
-	h.mu.Lock()
 	h.ring[h.next] = line
 	h.next = (h.next + 1) % len(h.ring)
 	if h.next == 0 {
@@ -51,7 +61,6 @@ func (h *LogHub) Write(source, level, msg string) {
 		default: // slow subscriber: drop rather than block the cores
 		}
 	}
-	h.mu.Unlock()
 }
 
 // Recent returns buffered lines, oldest first.

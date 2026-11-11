@@ -43,3 +43,32 @@ func TestBindingSurface(t *testing.T) {
 		t.Fatal("monitor not updated")
 	}
 }
+
+// TestLogsScrubCurrentSecretsAfterRestart: the hub outlives each engine, so
+// it must scrub with the secrets of the state that is running now.
+func TestLogsScrubCurrentSecretsAfterRestart(t *testing.T) {
+	stateWith := func(pw string) string {
+		res, err := ParseImport("trojan://"+pw+"@198.51.100.7:443#t", "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		var r struct{ Outbounds []json.RawMessage }
+		json.Unmarshal([]byte(res), &r)
+		var ob struct{ ID string }
+		json.Unmarshal(r.Outbounds[0], &ob)
+		return `{"outbounds":[` + string(r.Outbounds[0]) + `],"profiles":[{"id":"p","outbound":"` + ob.ID + `"}],"settings":{"platform":"android","basePort":18901}}`
+	}
+	SetDataDir(t.TempDir())
+	if err := Start(stateWith("first-secret-pw"), nil); err != nil {
+		t.Fatal(err)
+	}
+	Stop()
+	if err := Start(stateWith("second-secret-pw"), nil); err != nil {
+		t.Fatal(err)
+	}
+	defer Stop()
+	hub.Write("test", "info", "dial with second-secret-pw failed")
+	if logs := RecentLogs(); strings.Contains(logs, "second-secret-pw") {
+		t.Fatalf("restarted engine's secret reached the logs: %s", logs)
+	}
+}

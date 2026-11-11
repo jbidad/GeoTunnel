@@ -93,7 +93,7 @@ func startHy2Server(t *testing.T) int {
 	    "users": [{"password": "hy-test-pass"}],
 	    "tls": {"enabled": true, "certificate_path": %q, "key_path": %q}}],
 	  "outbounds": [{"type": "direct"}]}`, port, certPath, keyPath)
-	sb, err := startSingBox([]byte(cfg), nil, nil)
+	sb, err := startSingBox([]byte(cfg), nil, nil, "")
 	if err != nil {
 		t.Fatalf("hy2 server: %v", err)
 	}
@@ -251,5 +251,44 @@ func TestTestOutbound(t *testing.T) {
 	st.Outbounds = append(st.Outbounds, bad)
 	if r := e.TestOutbound(context.Background(), stateJSON(t, st), bad.ID); r.Error == "" {
 		t.Fatal("bad credentials should fail")
+	}
+}
+
+// TestCacheFileLocation: sing-box opens a bbolt cache whenever logs go to
+// the hub; it must land in the data dir, never in the working directory
+// (which is "/" on Android and not writable).
+func TestCacheFileLocation(t *testing.T) {
+	vless, _ := config.ParseLink(fmt.Sprintf("vless://%s@127.0.0.1:1?encryption=none&security=none&type=tcp#v", testUUID))
+	st := &config.State{
+		Outbounds: []*config.Outbound{vless},
+		Profiles:  []*config.Profile{{ID: "p", Outbound: vless.ID, LocalPort: mustFreePort(t)}},
+	}
+	os.Remove("cache.db")
+
+	dir := t.TempDir()
+	e := New(Options{DataDir: dir})
+	if err := e.Start(stateJSON(t, st)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "singbox-cache.db")); err != nil {
+		t.Errorf("cache file not in data dir: %v", err)
+	}
+	e.Stop()
+
+	// No DataDir: a private temp dir, removed again on Stop.
+	e2 := New(Options{})
+	if err := e2.Start(stateJSON(t, st)); err != nil {
+		t.Fatal(err)
+	}
+	tmp := e2.tmpDir
+	if _, err := os.Stat(filepath.Join(tmp, "singbox-cache.db")); err != nil {
+		t.Errorf("cache file not in temp dir: %v", err)
+	}
+	e2.Stop()
+	if _, err := os.Stat(tmp); !os.IsNotExist(err) {
+		t.Errorf("temp data dir %s not removed on Stop", tmp)
+	}
+	if _, err := os.Stat("cache.db"); err == nil {
+		t.Error("sing-box wrote cache.db into the working directory")
 	}
 }
