@@ -25,6 +25,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"geotunnel/core/config"
 	"geotunnel/core/desktop"
@@ -283,7 +284,10 @@ func cmdWebApp(args []string) error {
 	fs.Float64Var(&o.AccuracyM, "accuracy", 3000, "accuracy in metres")
 	fs.StringVar(&o.UserDataDir, "user-data-dir", "", "isolated browser profile directory")
 	fs.StringVar(&o.Browser, "browser", "", "Chromium-family executable (default: detect)")
-	fs.BoolVar(&o.Headless, "headless", false, "run headless (tests)")
+	fs.BoolVar(&o.Headless, "headless", false, "run headless (leak tests)")
+	fs.StringVar(&o.WebRTC, "webrtc", "disable", "disable | proxy-only")
+	probe := fs.Bool("probe", false, "after load, run the read-only leak probe and print {type:probe}")
+	echoURL := fs.String("echo-url", "", "header echo endpoint for the probe")
 	fs.Parse(args)
 	ctx, cancel := signalContext()
 	defer cancel()
@@ -294,6 +298,21 @@ func cmdWebApp(args []string) error {
 		return err
 	}
 	enc.Encode(webapp.Event{Type: "ready"})
+	if *probe {
+		pctx, pcancel := context.WithTimeout(ctx, 60*time.Second)
+		defer pcancel()
+		if err := s.WaitLoad(pctx); err != nil {
+			return err
+		}
+		res, err := s.Evaluate(pctx, webapp.LeakProbe(*echoURL))
+		if err != nil {
+			return err
+		}
+		enc.Encode(map[string]any{"type": "probe", "result": res})
+		if o.Headless {
+			return s.Close()
+		}
+	}
 	select {
 	case <-ctx.Done():
 		return s.Close()
@@ -338,4 +357,3 @@ func writeToken(path, token string, uid int) error {
 	}
 	return nil
 }
-

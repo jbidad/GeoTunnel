@@ -26,9 +26,9 @@ type Derived struct {
 
 // Overrides are the profile's non-auto values.
 type Overrides struct {
-	Timezone  string // "" or "auto" = derive
-	Language  string
-	Geo       *[3]float64 // lat, lon, accuracyM; nil = derive
+	Timezone string // "" or "auto" = derive
+	Language string
+	Geo      *[3]float64 // lat, lon, accuracyM; nil = derive
 }
 
 // Derive combines a lookup with the profile's fixed values. jitter moves the

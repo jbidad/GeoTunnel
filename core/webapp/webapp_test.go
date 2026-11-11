@@ -13,6 +13,9 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"geotunnel/core/engine"
+	"geotunnel/core/geo"
 )
 
 // socksRecorder is a tiny SOCKS5 CONNECT proxy that records requested
@@ -145,6 +148,13 @@ type probeResult struct {
 
 func runProbe(t *testing.T, o Options) (probeResult, *socksRecorder) {
 	t.Helper()
+	var r probeResult
+	rec := runInContainer(t, o, probe, &r)
+	return r, rec
+}
+
+func runInContainer(t *testing.T, o Options, expr string, out any) *socksRecorder {
+	t.Helper()
 	browser, err := FindBrowser()
 	if err != nil {
 		t.Skip("no Chromium-family browser installed")
@@ -153,6 +163,9 @@ func runProbe(t *testing.T, o Options) (probeResult, *socksRecorder) {
 		switch r.URL.Path {
 		case "/headers":
 			json.NewEncoder(w).Encode(map[string]string{"accept-language": r.Header.Get("Accept-Language"), "user-agent": r.UserAgent()})
+		case "/echo":
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+			json.NewEncoder(w).Encode(map[string]any{"headers": map[string]string{"Accept-Language": r.Header.Get("Accept-Language")}})
 		case "/worker.js":
 			w.Header().Set("Content-Type", "text/javascript")
 			w.Write([]byte(workerJS))
@@ -187,15 +200,35 @@ func runProbe(t *testing.T, o Options) (probeResult, *socksRecorder) {
 	if err := s.WaitLoad(ctx); err != nil {
 		t.Fatal(err)
 	}
-	v, err := s.Evaluate(ctx, probe)
+	if strings.Contains(expr, "__ORIGIN__") {
+		expr = strings.ReplaceAll(expr, "__ORIGIN__", strings.TrimSuffix(o.URL, "/"))
+	}
+	v, err := s.Evaluate(ctx, expr)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var r probeResult
-	if err := json.Unmarshal(v, &r); err != nil {
+	if err := json.Unmarshal(v, out); err != nil {
 		t.Fatalf("%v: %s", err, v)
 	}
-	return r, rec
+	return rec
+}
+
+// TestLeakProbeAgainstEvaluator runs the shipped read-only probe in the
+// container and scores it with the engine's evaluator: the desktop leak
+// test path end to end (minus the network part, covered in engine tests).
+func TestLeakProbeAgainstEvaluator(t *testing.T) {
+	var obs engine.BrowserObserved
+	o := Options{Timezone: "Europe/Istanbul", Locale: "tr-TR", Lat: 41.0082, Lon: 28.9784, AccuracyM: 2000, WebRTC: "disable"}
+	runInContainer(t, o, LeakProbe("__ORIGIN__/echo"), &obs)
+	exp := geo.Derived{Timezone: "Europe/Istanbul", Language: "tr-TR", Languages: []string{"tr-TR", "tr"}, Lat: 41.0082, Lon: 28.9784, AccuracyM: 2000}
+	for _, c := range engine.EvaluateBrowser(exp, obs, nil) {
+		if !c.Pass {
+			t.Errorf("%s failed: expected %q observed %q: %s", c.Name, c.Expected, c.Observed, c.Detail)
+		}
+	}
+	if obs.AcceptLanguage == "" {
+		t.Errorf("probe did not read the echoed Accept-Language: %+v", obs)
+	}
 }
 
 func TestContainerOverrides(t *testing.T) {

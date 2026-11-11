@@ -129,7 +129,9 @@ func stateJSON(t *testing.T, st *config.State) []byte {
 }
 
 // TestEndToEndThroughBothEngines proves the chain
-//   client -> sing-box mixed inbound -> (socks -> Xray VLESS | native hy2) -> server -> backend
+//
+//	client -> sing-box mixed inbound -> (socks -> Xray VLESS | native hy2) -> server -> backend
+//
 // for one Xray-run and one sing-box-run outbound, plus the kill switch for a
 // profile whose outbound does not exist.
 func TestEndToEndThroughBothEngines(t *testing.T) {

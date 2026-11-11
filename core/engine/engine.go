@@ -297,7 +297,7 @@ func (e *Engine) TestOutbound(ctx context.Context, stateJSON []byte, outboundID 
 		return res
 	}
 	resp.Body.Close()
-	res.LatencyMs = time.Since(start).Milliseconds()
+	res.LatencyMs = max(1, time.Since(start).Milliseconds())
 	if info, err := geo.Lookup(ctx, client, e.opts.GeoProviders); err == nil {
 		res.IP, res.Country = info.IP, info.Country
 		e.geoCache.Put(outboundID, info)

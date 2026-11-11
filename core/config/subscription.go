@@ -16,10 +16,10 @@ type Subscription struct {
 	// RefreshMinutes is the periodic refresh interval; 0 disables it.
 	RefreshMinutes int `json:"refreshMinutes,omitempty"`
 	// Via is the outbound (or profile) id to fetch through; empty means direct.
-	Via         string        `json:"via,omitempty"`
-	LastUpdated int64         `json:"lastUpdated,omitempty"` // unix seconds
-	LastError   string        `json:"lastError,omitempty"`
-	UserInfo    *SubUserInfo  `json:"userInfo,omitempty"`
+	Via         string       `json:"via,omitempty"`
+	LastUpdated int64        `json:"lastUpdated,omitempty"` // unix seconds
+	LastError   string       `json:"lastError,omitempty"`
+	UserInfo    *SubUserInfo `json:"userInfo,omitempty"`
 }
 
 // SubUserInfo is the de-facto `subscription-userinfo` response header.

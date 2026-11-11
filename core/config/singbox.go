@@ -326,11 +326,11 @@ func BuildSingBox(s *State, xray map[string]XrayInbound) (*SingBoxBuild, error) 
 	if tunNeeded {
 		tun := M{
 			"type": "tun", "tag": "tun-in",
-			"address":     []string{"172.19.0.1/30", "fdfe:dcba:9876::1/126"},
-			"mtu":         firstPositive(s.Settings.TUN.MTU, 9000),
-			"auto_route":  true,
+			"address":      []string{"172.19.0.1/30", "fdfe:dcba:9876::1/126"},
+			"mtu":          firstPositive(s.Settings.TUN.MTU, 9000),
+			"auto_route":   true,
 			"strict_route": true,
-			"stack":       firstNonEmpty(s.Settings.TUN.Stack, "mixed"),
+			"stack":        firstNonEmpty(s.Settings.TUN.Stack, "mixed"),
 		}
 		if platform == "android" && deviceProfile == "" {
 			// Only the targeted apps enter the VPN at all
@@ -373,7 +373,10 @@ func BuildSingBox(s *State, xray map[string]XrayInbound) (*SingBoxBuild, error) 
 		"final":                   "direct",
 		"default_domain_resolver": M{"server": "local"},
 	}
-	if tunNeeded {
+	if tunNeeded && platform != "android" && platform != "ios" {
+		// Desktop: the core's own (Xray) sockets also enter the TUN and must
+		// leave via the physical interface. On mobile GeoTunnel's own app is
+		// outside its tunnel, so no binding is needed.
 		route["auto_detect_interface"] = true
 	}
 	cfg := M{

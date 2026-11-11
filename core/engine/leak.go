@@ -228,6 +228,8 @@ type BrowserObserved struct {
 	Language       string   `json:"language"`
 	Languages      []string `json:"languages"`
 	AcceptLanguage string   `json:"acceptLanguage"` // as echoed by a server
+	AcceptLangErr  string   `json:"acceptLanguageError,omitempty"`
+	TimeErr        string   `json:"timeError,omitempty"`
 	Geo            *struct {
 		Lat      float64 `json:"lat"`
 		Lon      float64 `json:"lon"`

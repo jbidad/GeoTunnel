@@ -8,9 +8,9 @@ import (
 
 func TestGeoSettingSpellings(t *testing.T) {
 	cases := map[string]GeoSetting{
-		`"auto"`:                                     {Auto: true},
-		`null`:                                       {Auto: true},
-		`{"lat":41.01,"lon":28.97,"accuracyM":3000}`: {Lat: 41.01, Lon: 28.97, AccuracyM: 3000},
+		`"auto"`: {Auto: true},
+		`null`:   {Auto: true},
+		`{"lat":41.01,"lon":28.97,"accuracyM":3000}`:              {Lat: 41.01, Lon: 28.97, AccuracyM: 3000},
 		`"{\"lat\": 41.01, \"lon\": 28.97, \"accuracyM\": 3000}"`: {Lat: 41.01, Lon: 28.97, AccuracyM: 3000},
 	}
 	for in, want := range cases {

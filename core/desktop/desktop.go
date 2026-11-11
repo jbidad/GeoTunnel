@@ -17,7 +17,7 @@ import (
 
 // App is one launchable desktop application.
 type App struct {
-	ID          string `json:"id"`          // stable key (bundle id, desktop file id, exe path)
+	ID          string `json:"id"` // stable key (bundle id, desktop file id, exe path)
 	Name        string `json:"name"`
 	Executable  string `json:"executable"`  // absolute path when known
 	ProcessName string `json:"processName"` // what sing-box's process_name rule matches

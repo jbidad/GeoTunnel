@@ -107,7 +107,7 @@ func fetch(ctx context.Context, client *http.Client, p Provider) (*Info, error) 
 func parseIPInfo(b []byte) (*Info, error) {
 	var r struct {
 		IP, City, Region, Country, Loc, Org, Timezone string
-		Bogon                                          bool
+		Bogon                                         bool
 	}
 	if err := json.Unmarshal(b, &r); err != nil {
 		return nil, err
