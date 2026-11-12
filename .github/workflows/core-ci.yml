@@ -142,6 +142,7 @@ jobs:
       - name: gomobile bind
         run: |
           export ANDROID_NDK_HOME="$ANDROID_NDK_LATEST_HOME"
+          mkdir -p ../dist # gomobile does not create the output's parent directory
           gomobile bind -target=android -androidapi 21 -javapkg app.geotunnel -tags "$TAGS" \
             -trimpath -ldflags "-s -w" -o ../dist/core.aar ./mobile
           ls -l ../dist
