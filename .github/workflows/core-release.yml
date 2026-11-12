@@ -95,6 +95,7 @@ jobs:
       - name: gomobile bind
         run: |
           export ANDROID_NDK_HOME="$ANDROID_NDK_LATEST_HOME"
+          mkdir -p ../dist # gomobile does not create the output's parent directory
           gomobile bind -target=android -androidapi 21 -javapkg app.geotunnel -tags "$TAGS" \
             -trimpath -ldflags "-s -w" -o ../dist/core.aar ./mobile
       - uses: actions/upload-artifact@v4
@@ -118,6 +119,7 @@ jobs:
           echo "$RUNNER_TEMP/gomobile" >> "$GITHUB_PATH"
       - name: gomobile bind
         run: |
+          mkdir -p ../dist
           gomobile bind -target=ios,iossimulator -prefix GT -tags "$TAGS" \
             -trimpath -ldflags "-s -w" -o ../dist/Core.xcframework ./mobile
           cd ../dist && ditto -c -k --keepParent Core.xcframework Core.xcframework.zip
